@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Mail, User, Lock, Info } from 'lucide-react';
+import { Eye, EyeOff, Mail, User, Lock, Info, MailCheck } from 'lucide-react'; // Added MailCheck
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,8 @@ export function SignupPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+  const [isVerificationEmailSent, setIsVerificationEmailSent] = useState(false); // New state
+
   const {
     register,
     handleSubmit,
@@ -50,17 +51,43 @@ export function SignupPage() {
   const onSubmit = async (data: SignupFormValues) => {
     try {
       await signup(data.name, data.email, data.password, data.role);
-      
-      // Navigate based on user role
-      if (data.role === 'owner') {
-        navigate('/owner');
-      } else {
-        navigate('/tenant');
-      }
+      // If signup in useAuth returns without error, it means verification email is sent (or auto-verified)
+      // The useAuth hook now handles the specific toast message based on verification status.
+      setIsVerificationEmailSent(true); // Show verification message screen
     } catch (error) {
-      // Error is handled by the useAuth hook
+      // Error toast is handled by the useAuth hook.
+      // No need to set local error state unless specific UI changes are needed here for errors.
+      console.error("Signup page error:", error);
     }
   };
+
+  if (isVerificationEmailSent) {
+    return (
+      <Card className="w-full bg-card border-border">
+        <CardHeader className="items-center text-center space-y-2 pt-8">
+          <MailCheck className="h-16 w-16 text-green-500" />
+          <h1 className="text-2xl font-bold">Check Your Email</h1>
+        </CardHeader>
+        <CardContent className="text-center space-y-4">
+          <p className="text-muted-foreground">
+            We've sent a verification link to your email address. 
+            Please check your inbox (and spam folder!) and click the link to complete the signup process.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Once verified, you can log in to your account.
+          </p>
+        </CardContent>
+        <CardFooter className="flex flex-col space-y-4">
+          <Button onClick={() => navigate('/login')} className="w-full">
+            Go to Login
+          </Button>
+          <Button variant="link" onClick={() => setIsVerificationEmailSent(false)} className="text-sm">
+            Entered wrong email? Go back
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
   
   return (
     <Card className="w-full bg-card border-border">

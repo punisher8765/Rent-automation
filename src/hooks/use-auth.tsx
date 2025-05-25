@@ -104,29 +104,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (signUpError) throw signUpError;
       if (!newUser) throw new Error('No user returned after signup');
 
-      // Create profile record
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert([
-          {
-            user_id: newUser.id,
-            full_name: name,
-            user_type: role,
-          }
-        ]);
+      // Check if email verification is required and not yet completed
+      // Supabase returns a user object but no session if email confirmation is pending
+      const isEmailVerified = newUser.email_confirmed_at;
 
-      if (profileError) throw profileError;
+      if (!isEmailVerified) {
+        toast({
+          title: 'Account Created - Verification Pending',
+          description: "We've sent a verification link to your email. Please verify your email to complete the signup process.",
+        });
+        // Do not proceed to create profile or set localStorage until email is verified.
+        // The user will be able to log in after verification.
+        // The onAuthStateChange listener will handle session setup upon successful verification and login.
+        return; // Exit signup process here
+      }
 
-      // Store user role in localStorage
-      localStorage.setItem('rentease-user', JSON.stringify({ 
-        role,
-        name 
-      }));
+      // This part will typically only be reached if "Email auto-confirmation" is enabled in Supabase
+      // AND the email was successfully auto-confirmed, OR if the user somehow re-triggers this flow after verification.
+      // For most setups where email verification is enforced, the user needs to verify first, then log in.
+      
+      // Create profile record - only if email is verified
+      try {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              user_id: newUser.id,
+              full_name: name,
+              user_type: role,
+            }
+          ]);
 
-      toast({
-        title: 'Welcome to RentEase!',
-        description: 'Your account has been created successfully.',
-      });
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw new Error(`Failed to create user profile: ${profileError.message}`);
+        }
+        
+        // Store user role in localStorage - only if profile creation was successful
+        localStorage.setItem('rentease-user', JSON.stringify({ 
+          role,
+          name 
+        }));
+
+        toast({
+          title: 'Welcome to RentEase!',
+          description: 'Your account has been created and verified successfully.',
+        });
+
+      } catch (profileErr) {
+        // Handle errors specifically from profile creation or localStorage
+        const profileMessage = profileErr instanceof Error ? profileErr.message : 'Failed to finalize user profile.';
+        setError(profileMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Profile Setup Error',
+          description: profileMessage,
+        });
+        // If profile creation fails, it's a significant issue.
+        // We might want to sign out the user to ensure a clean state,
+        // or let them try to log in again which might trigger profile creation if it's idempotent.
+        // For now, just re-throw.
+        throw profileErr;
+      }
+
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign up';
       setError(message);
