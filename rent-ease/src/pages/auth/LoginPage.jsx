@@ -1,7 +1,7 @@
 import React from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser, clearAuthError } from '../../store/slices/authSlice';
 import { TextField, Button, Typography, Box, Grid, Link, CircularProgress } from '@mui/material';
@@ -9,6 +9,7 @@ import AuthLayout from '../../components/common/AuthLayout'; // Import AuthLayou
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // Call useLocation
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
 
@@ -28,7 +29,13 @@ const LoginPage = () => {
       const action = await dispatch(loginUser(values));
       if (loginUser.fulfilled.match(action)) {
         const user = action.payload.user;
-        navigate(user.userType === 'owner' ? '/owner/dashboard' : '/tenant/dashboard');
+        const from = location.state?.from?.pathname;
+        const defaultDashboard = user.userType === 'owner' ? '/owner/dashboard' : '/tenant/dashboard';
+        let redirectTo = defaultDashboard;
+        if (from && from !== '/auth/login' && from !== '/auth/signup') {
+          redirectTo = from;
+        }
+        navigate(redirectTo, { replace: true });
       }
     } catch (err) {
       console.error("Login submission error:", err);

@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux'; // Import useSelector
 
 // Layouts
 import AuthLayout from '../components/common/AuthLayout';
@@ -17,17 +18,44 @@ import AddRoomPage from '../pages/owner/room/AddRoomPage';
 import EditRoomPage from '../pages/owner/room/EditRoomPage';
 import RoomDetailPage from '../pages/owner/room/RoomDetailPage'; 
 import TenantRoomDetailPage from '../pages/tenant/room/TenantRoomDetailPage'; // Import TenantRoomDetailPage
+import NotFoundPage from '../pages/NotFoundPage'; // Import NotFoundPage
 
 // Protected Route
 import ProtectedRoute from './ProtectedRoute';
+
+// AuthRedirectWrapper Component
+const AuthRedirectWrapper = ({ children }) => {
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
+
+  if (isAuthenticated) {
+    const dashboardPath = user?.userType === 'owner' ? '/owner/dashboard' : '/tenant/dashboard';
+    return <Navigate to={dashboardPath} replace />;
+  }
+
+  return children;
+};
 
 const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
         {/* Auth Routes */}
-        <Route path="/auth/login" element={<AuthLayout><LoginPage /></AuthLayout>} />
-        <Route path="/auth/signup" element={<AuthLayout><SignupPage /></AuthLayout>} />
+        <Route 
+          path="/auth/login" 
+          element={
+            <AuthRedirectWrapper>
+              <AuthLayout><LoginPage /></AuthLayout>
+            </AuthRedirectWrapper>
+          } 
+        />
+        <Route 
+          path="/auth/signup" 
+          element={
+            <AuthRedirectWrapper>
+              <AuthLayout><SignupPage /></AuthLayout>
+            </AuthRedirectWrapper>
+          } 
+        />
 
         {/* Owner Routes - Protected */}
         <Route 
@@ -131,6 +159,9 @@ const AppRouter = () => {
             <Navigate to="/auth/login" replace />
           } 
         />
+
+        {/* Catch-all for undefined routes */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );
